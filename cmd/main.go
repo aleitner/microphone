@@ -9,6 +9,7 @@ import (
 
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
+	"github.com/gen2brain/malgo"
 	"github.com/urfave/cli/v2"
 )
 
@@ -21,23 +22,29 @@ func main() {
 				Usage:   "start reading microphone input",
 				Action: func(c *cli.Context) error {
 
-					fmt.Println("Recording. Press Ctrl-C to stop.")
-
-					err := microphone.Init()
+					ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+						fmt.Printf("LOG <%v>\n", message)
+					})
 					if err != nil {
-						log.Fatal(err)
+						fmt.Println(err)
+						os.Exit(1)
 					}
-					defer microphone.Terminate()
+					defer func() {
+						_ = ctx.Uninit()
+						ctx.Free()
+					}()
 
-					stream, format, err := microphone.OpenDefaultStream(44100, 2)
+					deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
+					deviceConfig.Capture.Format = malgo.FormatS24
+					deviceConfig.Capture.Channels = 2
+					deviceConfig.SampleRate = 44100
+
+					stream, format, err := microphone.OpenStream(ctx, deviceConfig)
 					if err != nil {
 						log.Fatal(err)
 					}
 
 					defer stream.Close()
-
-					stream.Start()
-					defer stream.Stop()
 
 					speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 

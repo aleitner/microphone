@@ -1,20 +1,44 @@
 package microphone
 
-import "github.com/faiface/beep"
+import (
+	"github.com/faiface/beep"
+	"github.com/gen2brain/malgo"
+)
 
-func Init() error {
-	return nil
-}
+func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (*Streamer, beep.Format, error) {
+	var capturedSampleCount uint32
+	pCapturedSamples := make([]byte, 0)
+	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
 
-func Terminate() error {
-	return nil
-}
+	onRecvFrames := func(pSample2, pSample []byte, framecount uint32) {
+		sampleCount := framecount * deviceConfig.Capture.Channels * sizeInBytes
+		newCapturedSampleCount := capturedSampleCount + sampleCount
+		pCapturedSamples = append(pCapturedSamples, pSample...)
+		capturedSampleCount = newCapturedSampleCount
+	}
 
-func OpenDefaultStream(sampleRate beep.SampleRate, inputChannels int) (s *Streamer, format beep.Format, err error) {
-	return nil, beep.Format{}, nil
+	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
+		Data: onRecvFrames,
+	})
+	if err != nil {
+		return nil, beep.Format{}, err
+	}
+
+	s := &Streamer{
+		device: device,
+	}
+
+	format := beep.Format{
+		SampleRate:  beep.SampleRate(device.SampleRate()),
+		NumChannels: int(device.CaptureChannels()),
+		Precision:   0,
+	}
+
+	return s, format, nil
 }
 
 type Streamer struct {
+	device *malgo.Device
 	buffer [][]float32
 	err    error
 }
@@ -28,13 +52,15 @@ func (s *Streamer) Err() error {
 }
 
 func (s *Streamer) Close() error {
+	s.device.Uninit()
+
 	return nil
 }
 
-func (s *Streamer) Start() error {
-	return nil
+func (s *Streamer) start() {
+	s.device.Start()
 }
 
-func (s *Streamer) Stop() error {
-	return nil
+func (s *Streamer) stop() {
+	s.device.Stop()
 }
