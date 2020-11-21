@@ -48,6 +48,11 @@ func main() {
 
 					speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 
+					stream.Start()
+					defer stream.Stop()
+
+					time.Sleep(time.Second * 1)
+
 					done := make(chan bool)
 					speaker.Play(beep.Seq(stream, beep.Callback(func() {
 						done <- true

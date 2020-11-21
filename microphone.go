@@ -1,13 +1,12 @@
 package microphone
 
 import (
-	"encoding/binary"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/faiface/beep"
 	"github.com/gen2brain/malgo"
+	"github.com/go-audio/audio"
 )
 
 func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s *Streamer, format beep.Format, err error) {
@@ -25,7 +24,7 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
 		s.buffer = append(s.buffer, samples...)
 
-		fmt.Println(int(framecount), int(sizeInBytes))
+		fmt.Println(samples)
 	}
 
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
@@ -42,8 +41,6 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 		NumChannels: int(device.CaptureChannels()),
 		Precision:   3,
 	}
-
-	s.Start()
 
 	return s, format, nil
 }
@@ -115,10 +112,6 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 			bytes := input[:sampleSizeInBytes]
 			samples[i][channel] = float64frombytes(bytes)
 			input = input[sampleSizeInBytes:]
-
-			bytes = input[:sampleSizeInBytes]
-			samples[i][channel] = float64frombytes(input[:sampleSizeInBytes])
-			input = input[sampleSizeInBytes:]
 		}
 	}
 
@@ -126,7 +119,5 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 }
 
 func float64frombytes(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint64(bytes)
-	float := math.Float64frombits(bits)
-	return float
+	return float64(audio.Int24BETo32(bytes))
 }
