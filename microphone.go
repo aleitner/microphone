@@ -103,17 +103,19 @@ func (s *Streamer) Stop() {
 	s.device.Stop()
 }
 
-func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes int) [][2]float64 {
+func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChannels int) [][2]float64 {
 	samples := make([][2]float64, sampleCount)
 
 	for i := range samples {
-		bytes := input[:sampleSizeInBytes]
-		samples[i][0] = float64frombytes(bytes)
-		input = input[sampleSizeInBytes:]
+		for channel := 0; channel < numChannels; channel++ {
+			bytes := input[:sampleSizeInBytes]
+			samples[i][channel] = float64frombytes(bytes)
+			input = input[sampleSizeInBytes:]
 
-		bytes := input[:sampleSizeInBytes]
-		samples[i][1] = float64frombytes(input[:sampleSizeInBytes])
-		input = input[sampleSizeInBytes:]
+			bytes = input[:sampleSizeInBytes]
+			samples[i][channel] = float64frombytes(input[:sampleSizeInBytes])
+			input = input[sampleSizeInBytes:]
+		}
 	}
 
 	return samples
