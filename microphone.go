@@ -1,45 +1,49 @@
 package microphone
 
 import (
+	"encoding/binary"
+	"fmt"
+	"math"
 	"sync"
 
 	"github.com/faiface/beep"
 	"github.com/gen2brain/malgo"
 )
 
-func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (*Streamer, beep.Format, error) {
-	s := &Streamer{
-		minBufferSize: 4096,
+func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s *Streamer, format beep.Format, err error) {
+	if deviceConfig.Capture.Channels > 2 || deviceConfig.Capture.Channels == 0 {
+		return nil, beep.Format{}, fmt.Errorf("Invalid number of channels")
 	}
+
+	s = &Streamer{}
 
 	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
 
 	onRecvFrames := func(outputSample, inputSample []byte, framecount uint32) {
-		sampleCount := framecount * deviceConfig.Capture.Channels * sizeInBytes
-
-		samples := sampleBytesToFloats(inputSample, int(sampleCount))
+		s.mtx.Lock()
+		defer s.mtx.Unlock()
+		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes))
 		s.buffer = append(s.buffer, samples...)
-		if len(s.buffer) > s.minBufferSize {
-			s.stop()
-		}
+
+		fmt.Println(int(framecount), int(sizeInBytes))
 	}
 
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
 		Data: onRecvFrames,
 	})
 	if err != nil {
-		return nil, beep.Format{}, err
+		return s, format, err
 	}
 
 	s.device = device
 
-	format := beep.Format{
+	format = beep.Format{
 		SampleRate:  beep.SampleRate(device.SampleRate()),
 		NumChannels: int(device.CaptureChannels()),
 		Precision:   3,
 	}
 
-	s.start()
+	s.Start()
 
 	return s, format, nil
 }
@@ -48,7 +52,6 @@ type Streamer struct {
 	mtx    sync.Mutex
 	device *malgo.Device
 	buffer [][2]float64
-	minBufferSize int
 	err    error
 }
 
@@ -61,8 +64,13 @@ func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 		return 0, false
 	}
 
+	numSamples := len(samples)
+	if len(s.buffer) < numSamples {
+		numSamples = len(s.buffer)
+	}
+
 	numSamplesStreamed := 0
-	for i := range samples {
+	for i := 0; i < numSamples; i++ {
 		if len(s.buffer) == 0 {
 			break
 		}
@@ -73,10 +81,6 @@ func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 
 	s.buffer = s.buffer[numSamplesStreamed:]
 
-	if len(s.buffer) < s.minBufferSize {
-		s.start()
-	}
-
 	return numSamplesStreamed, true
 }
 
@@ -85,21 +89,38 @@ func (s *Streamer) Err() error {
 }
 
 func (s *Streamer) Close() error {
+	s.device.Stop()
 	s.device.Uninit()
 
 	return nil
 }
 
-func (s *Streamer) start() {
+func (s *Streamer) Start() {
 	s.device.Start()
 }
 
-func (s *Streamer) stop() {
+func (s *Streamer) Stop() {
 	s.device.Stop()
 }
 
-func sampleBytesToFloats(input []byte, sampleCount int) [][2]float64 {
+func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes int) [][2]float64 {
 	samples := make([][2]float64, sampleCount)
 
+	for i := range samples {
+		bytes := input[:sampleSizeInBytes]
+		samples[i][0] = float64frombytes(bytes)
+		input = input[sampleSizeInBytes:]
+
+		bytes := input[:sampleSizeInBytes]
+		samples[i][1] = float64frombytes(input[:sampleSizeInBytes])
+		input = input[sampleSizeInBytes:]
+	}
+
 	return samples
+}
+
+func float64frombytes(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
 }
