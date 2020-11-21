@@ -110,7 +110,7 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 	for i := range samples {
 		for channel := 0; channel < numChannels; channel++ {
 			bytes := input[:sampleSizeInBytes]
-			samples[i][channel] = float64frombytes(bytes)
+			samples[i][channel] = float64frombytes(bytes, sampleSizeInBytes)
 			input = input[sampleSizeInBytes:]
 		}
 	}
@@ -118,6 +118,11 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 	return samples
 }
 
-func float64frombytes(bytes []byte) float64 {
-	return float64(audio.Int24BETo32(bytes))
+func float64frombytes(bytes []byte, sampleSizeInBytes int) float64 {
+	switch (sampleSizeInBytes) {
+	case 3:
+		return float64(audio.Int24BETo32(bytes))
+	default:
+		return 0
+	}
 }
