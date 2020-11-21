@@ -22,7 +22,7 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 	onRecvFrames := func(outputSample, inputSample []byte, framecount uint32) {
 		s.mtx.Lock()
 		defer s.mtx.Unlock()
-		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes))
+		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
 		s.buffer = append(s.buffer, samples...)
 
 		fmt.Println(int(framecount), int(sizeInBytes))
@@ -105,6 +105,10 @@ func (s *Streamer) Stop() {
 
 func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChannels int) [][2]float64 {
 	samples := make([][2]float64, sampleCount)
+
+	if numChannels == 0 || numChannels > 2 {
+		return samples
+	}
 
 	for i := range samples {
 		for channel := 0; channel < numChannels; channel++ {
