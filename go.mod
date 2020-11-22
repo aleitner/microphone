@@ -1,4 +1,4 @@
-module microphone
+module github.com/aleitner/microphone
 
 go 1.15
 
