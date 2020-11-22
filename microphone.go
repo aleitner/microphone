@@ -23,8 +23,6 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 		defer s.mtx.Unlock()
 		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
 		s.buffer = append(s.buffer, samples...)
-
-		fmt.Println(samples)
 	}
 
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
