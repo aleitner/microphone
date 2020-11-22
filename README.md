@@ -6,6 +6,6 @@ Library that wraps the [gen2brain/malgo](https://github.com/gen2brain/malgo) lib
 go get -u github.com/aleitner/microphone
 ```
 
-## Licence
+## License
 
 [MIT](https://github.com/MarkKremer/microphone/blob/master/LICENSE)
