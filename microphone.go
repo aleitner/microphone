@@ -27,6 +27,8 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
 		s.buffer = append(s.buffer, samples...)
 		s.cond.Signal()
+
+		//NB: Should we s.Stop() if the buffer becomes x bytes or greater?
 	}
 
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
