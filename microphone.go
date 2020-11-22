@@ -67,13 +67,12 @@ func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 		s.cond.Wait()
 	}
 
-
 	if s.closed {
 		return 0, false
 	}
 
 	// Stream is already empty
-	if !s.device.IsStarted() || len(s.buffer) == 0 {
+	if  len(s.buffer) == 0 {
 		return 0, true
 	}
 
