@@ -110,7 +110,7 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 	for i := range samples {
 		for channel := 0; channel < numChannels; channel++ {
 			bytes := input[:sampleSizeInBytes]
-			samples[i][channel] = float64frombytes(bytes, sampleSizeInBytes)
+			samples[i][channel] = decodeFloat(bytes)
 			input = input[sampleSizeInBytes:]
 		}
 	}
@@ -118,36 +118,18 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 	return samples
 }
 
-func float64frombytes(bytes []byte, sampleSizeInBytes int) float64 {
-	switch (sampleSizeInBytes) {
-	case 3:
-		x, _ := decodeFloat(true, 3, bytes)
-		return x
-	default:
-		return 0
-	}
-}
+func decodeFloat(p []byte) (x float64) {
+	precision := 3
 
-func decodeFloat(signed bool, precision int, p []byte) (x float64, n int) {
 	var xUint64 uint64
 	for i := precision - 1; i >= 0; i-- {
 		xUint64 <<= 8
 		xUint64 += uint64(p[i])
 	}
-	if signed {
-		return signedToFloat(precision, xUint64), precision
-	}
-	return unsignedToFloat(precision, xUint64), precision
-}
 
-func signedToFloat(precision int, xUint64 uint64) float64 {
 	if xUint64 >= 1<<uint(precision*8-1) {
 		compl := 1<<uint(precision*8) - xUint64
 		return -float64(int64(compl)) / (math.Exp2(float64(precision)*8-1) - 1)
 	}
 	return float64(int64(xUint64)) / (math.Exp2(float64(precision)*8-1) - 1)
-}
-
-func unsignedToFloat(precision int, xUint64 uint64) float64 {
-	return float64(xUint64)/(math.Exp2(float64(precision)*8)-1)*2 - 1
 }
