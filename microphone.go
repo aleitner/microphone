@@ -9,6 +9,7 @@ import (
 	"github.com/gen2brain/malgo"
 )
 
+// OpenStream opens a stream for the deviceConfig
 func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s *Streamer, format beep.Format, err error) {
 	if deviceConfig.Capture.Channels > 2 || deviceConfig.Capture.Channels == 0 {
 		return nil, beep.Format{}, fmt.Errorf("Invalid number of channels")
@@ -45,6 +46,8 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 	return s, format, nil
 }
 
+// Streamer is an implementation of the beep.StreamCloser interface
+// to provide access to the microphone through the malgo library.
 type Streamer struct {
 	cond   *sync.Cond
 	device *malgo.Device
@@ -53,6 +56,10 @@ type Streamer struct {
 	closed   bool
 }
 
+// Stream fills samples with the audio recorded with the microphone.
+// Unless there is an error, this method will wait until samples
+// is filled completely which may involve waiting for the OS to
+// supply the data.
 func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
@@ -87,10 +94,13 @@ func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 	return numSamplesStreamed, true
 }
 
+// Err returns an error that occurred during streaming.
+// If no error occurred, nil is returned.
 func (s *Streamer) Err() error {
 	return s.err
 }
 
+// Close terminates the stream.
 func (s *Streamer) Close() error {
 	s.Stop()
 
@@ -101,12 +111,14 @@ func (s *Streamer) Close() error {
 	return nil
 }
 
+// Start reading data from the microphone
 func (s *Streamer) Start() {
 	if !s.device.IsStarted() {
 		s.device.Start()
 	}
 }
 
+// Stop reading data from the microphone
 func (s *Streamer) Stop() {
 	if s.device.IsStarted() {
 		s.device.Stop()
