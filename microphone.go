@@ -89,19 +89,25 @@ func (s *Streamer) Err() error {
 }
 
 func (s *Streamer) Close() error {
-	s.device.Stop()
-	s.device.Uninit()
-	s.closed = true
+	s.Stop()
 
+	if !s.closed {
+		s.device.Uninit()
+		s.closed = true
+	}
 	return nil
 }
 
 func (s *Streamer) Start() {
-	s.device.Start()
+	if !s.device.IsStarted() {
+		s.device.Start()
+	}
 }
 
 func (s *Streamer) Stop() {
-	s.device.Stop()
+	if s.device.IsStarted() {
+		s.device.Stop()
+	}
 }
 
 func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChannels int) [][2]float64 {
