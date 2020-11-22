@@ -19,10 +19,11 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
 
 	onRecvFrames := func(outputSample, inputSample []byte, framecount uint32) {
-		s.mtx.Lock()
-		defer s.mtx.Unlock()
+		s.cond.L.Lock()
+		defer s.cond.L.Unlock()
 		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
 		s.buffer = append(s.buffer, samples...)
+		s.cond.Signal()
 	}
 
 	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
@@ -33,6 +34,7 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 	}
 
 	s.device = device
+	s.cond = sync.NewCond(&sync.Mutex{})
 
 	format = beep.Format{
 		SampleRate:  beep.SampleRate(device.SampleRate()),
@@ -44,7 +46,7 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 }
 
 type Streamer struct {
-	mtx    sync.Mutex
+	cond   *sync.Cond
 	device *malgo.Device
 	buffer [][2]float64
 	err    error
@@ -52,8 +54,12 @@ type Streamer struct {
 }
 
 func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+	for len(s.buffer) < len(samples){
+		s.cond.Wait()
+	}
+
 
 	if s.closed {
 		return 0, false
@@ -65,9 +71,6 @@ func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 	}
 
 	numSamples := len(samples)
-	if len(s.buffer) < numSamples {
-		numSamples = len(s.buffer)
-	}
 
 	numSamplesStreamed := 0
 	for i := 0; i < numSamples; i++ {
