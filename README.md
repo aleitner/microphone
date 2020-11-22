@@ -8,4 +8,4 @@ go get -u github.com/aleitner/microphone
 
 ## License
 
-[MIT](https://github.com/MarkKremer/microphone/blob/master/LICENSE)
+[MIT](https://github.com/aleitner/microphone/blob/master/LICENSE)
