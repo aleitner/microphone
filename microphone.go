@@ -15,10 +15,12 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 		return nil, beep.Format{}, fmt.Errorf("Invalid number of channels")
 	}
 
-	s = &Streamer{}
+	s = &Streamer{
+		cond: sync.NewCond(&sync.Mutex{}),
+	}
 
+	// Callback with microphone audio data
 	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
-
 	onRecvFrames := func(outputSample, inputSample []byte, framecount uint32) {
 		s.cond.L.Lock()
 		defer s.cond.L.Unlock()
@@ -35,7 +37,6 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 	}
 
 	s.device = device
-	s.cond = sync.NewCond(&sync.Mutex{})
 
 	format = beep.Format{
 		SampleRate:  beep.SampleRate(device.SampleRate()),
@@ -53,7 +54,7 @@ type Streamer struct {
 	device *malgo.Device
 	buffer [][2]float64
 	err    error
-	closed   bool
+	closed bool
 }
 
 // Stream fills samples with the audio recorded with the microphone.
@@ -63,23 +64,24 @@ type Streamer struct {
 func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
-	for len(s.buffer) < len(samples){
+
+	// Wait until buffer fills up to Stream
+	for len(s.buffer) < len(samples) {
 		s.cond.Wait()
 	}
 
+	// return that the stream has been closed
 	if s.closed {
 		return 0, false
 	}
 
 	// Stream is already empty
-	if  len(s.buffer) == 0 {
+	if len(s.buffer) == 0 {
 		return 0, true
 	}
 
-	numSamples := len(samples)
-
 	numSamplesStreamed := 0
-	for i := 0; i < numSamples; i++ {
+	for i := 0; i < len(samples); i++ {
 		if len(s.buffer) == 0 {
 			break
 		}
