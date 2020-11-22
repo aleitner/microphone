@@ -2,11 +2,11 @@ package microphone
 
 import (
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/faiface/beep"
 	"github.com/gen2brain/malgo"
-	"github.com/go-audio/audio"
 )
 
 func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s *Streamer, format beep.Format, err error) {
@@ -121,8 +121,33 @@ func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChanne
 func float64frombytes(bytes []byte, sampleSizeInBytes int) float64 {
 	switch (sampleSizeInBytes) {
 	case 3:
-		return float64(audio.Int24BETo32(bytes))
+		x, _ := decodeFloat(true, 3, bytes)
+		return x
 	default:
 		return 0
 	}
+}
+
+func decodeFloat(signed bool, precision int, p []byte) (x float64, n int) {
+	var xUint64 uint64
+	for i := precision - 1; i >= 0; i-- {
+		xUint64 <<= 8
+		xUint64 += uint64(p[i])
+	}
+	if signed {
+		return signedToFloat(precision, xUint64), precision
+	}
+	return unsignedToFloat(precision, xUint64), precision
+}
+
+func signedToFloat(precision int, xUint64 uint64) float64 {
+	if xUint64 >= 1<<uint(precision*8-1) {
+		compl := 1<<uint(precision*8) - xUint64
+		return -float64(int64(compl)) / (math.Exp2(float64(precision)*8-1) - 1)
+	}
+	return float64(int64(xUint64)) / (math.Exp2(float64(precision)*8-1) - 1)
+}
+
+func unsignedToFloat(precision int, xUint64 uint64) float64 {
+	return float64(xUint64)/(math.Exp2(float64(precision)*8)-1)*2 - 1
 }
