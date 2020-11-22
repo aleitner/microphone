@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
-	"microphone"
 	"os"
 	"time"
 
+	"github.com/aleitner/microphone"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
 	"github.com/gen2brain/malgo"
