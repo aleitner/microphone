@@ -100,7 +100,7 @@ func (s *Streamer) Err() error {
 	return s.err
 }
 
-// Close terminates the stream.
+// Close the stream
 func (s *Streamer) Close() error {
 	s.Stop()
 
@@ -118,7 +118,8 @@ func (s *Streamer) Start() {
 	}
 }
 
-// Stop reading data from the microphone
+// Stop reading data from the microphone.
+// reading can be resumed using the Start method
 func (s *Streamer) Stop() {
 	if s.device.IsStarted() {
 		s.device.Stop()

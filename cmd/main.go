@@ -57,6 +57,7 @@ func main() {
 						<-ctrlc
 						fmt.Println("\r- Turning off microphone...")
 						stream.Close()
+						os.Exit(0)
 					}()
 
 					done := make(chan bool)
