@@ -22,12 +22,8 @@ func OpenStream(ctx *malgo.AllocatedContext, deviceConfig malgo.DeviceConfig) (s
 	// Callback with microphone audio data
 	sizeInBytes := uint32(malgo.SampleSizeInBytes(deviceConfig.Capture.Format))
 	onRecvFrames := func(outputSample, inputSample []byte, framecount uint32) {
-		s.cond.L.Lock()
-		defer s.cond.L.Unlock()
-		samples := sampleBytesToFloats(inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
-		s.buffer = append(s.buffer, samples...)
+		sampleBytesToFloats(s, inputSample, int(framecount), int(sizeInBytes), int(deviceConfig.Capture.Channels))
 		s.cond.Signal()
-
 		//NB: Should we s.Stop() if the buffer becomes x bytes or greater?
 	}
 
@@ -64,13 +60,12 @@ type Streamer struct {
 // is filled completely which may involve waiting for the OS to
 // supply the data.
 func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
-	s.cond.L.Lock()
-	defer s.cond.L.Unlock()
-
 	// Wait until buffer fills up to Stream
+	s.cond.L.Lock()
 	for len(s.buffer) < len(samples) {
 		s.cond.Wait()
 	}
+	s.cond.L.Unlock()
 
 	// return that the stream has been closed
 	if s.closed {
@@ -129,22 +124,21 @@ func (s *Streamer) Stop() {
 	}
 }
 
-func sampleBytesToFloats(input []byte, sampleCount, sampleSizeInBytes, numChannels int) [][2]float64 {
-	samples := make([][2]float64, sampleCount)
-
+func sampleBytesToFloats(s *Streamer, input []byte, sampleCount, sampleSizeInBytes, numChannels int){
 	if numChannels == 0 || numChannels > 2 {
-		return samples
+		return
 	}
 
-	for i := range samples {
+	for sample := 0; sample < sampleCount; sample++ {
+		var channels [2]float64
 		for channel := 0; channel < numChannels; channel++ {
 			bytes := input[:sampleSizeInBytes]
-			samples[i][channel] = decodeFloat(bytes)
+			channels[channel] = decodeFloat(bytes)
 			input = input[sampleSizeInBytes:]
 		}
-	}
 
-	return samples
+		s.buffer = append(s.buffer, channels)
+	}
 }
 
 func decodeFloat(p []byte) (x float64) {
