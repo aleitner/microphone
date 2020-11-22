@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aleitner/microphone"
-	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
 	"github.com/gen2brain/malgo"
 	"github.com/urfave/cli/v2"
@@ -49,16 +50,14 @@ func main() {
 					speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 
 					stream.Start()
-					defer stream.Stop()
 
-					time.Sleep(time.Second * 1)
+					ctrlc := make(chan os.Signal)
+					signal.Notify(ctrlc, os.Interrupt, syscall.SIGTERM)
 
-					done := make(chan bool)
-					speaker.Play(beep.Seq(stream, beep.Callback(func() {
-						done <- true
-					})))
+					speaker.Play(stream)
 
-					<-done
+					<-ctrlc
+
 					return nil
 				},
 			},

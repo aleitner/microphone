@@ -48,15 +48,20 @@ type Streamer struct {
 	device *malgo.Device
 	buffer [][2]float64
 	err    error
+	closed   bool
 }
 
 func (s *Streamer) Stream(samples [][2]float64) (int, bool) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	// Stream is already empty
-	if len(s.buffer) == 0 {
+	if s.closed {
 		return 0, false
+	}
+
+	// Stream is already empty
+	if !s.device.IsStarted() || len(s.buffer) == 0 {
+		return 0, true
 	}
 
 	numSamples := len(samples)
@@ -86,6 +91,7 @@ func (s *Streamer) Err() error {
 func (s *Streamer) Close() error {
 	s.device.Stop()
 	s.device.Uninit()
+	s.closed = true
 
 	return nil
 }
